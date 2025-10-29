@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Animated Weather Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font setup */
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 2rem;
+            padding-bottom: 2rem; /* Add padding for forecast content */
+            transition: background 1.5s ease-in-out; /* Smooth transition for dynamic background */
+            /* Default gradient, overridden by JS */
+            background: var(--bg-gradient-default, linear-gradient(135deg, #434c76 0%, #30375c 100%)); 
+        }
+
+        /* Styling the main weather icon */
+        .weather-icon-container {
+            font-size: 4rem;
+            line-height: 1;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5; /* Tailwind indigo-600 */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Animation for the card elements */
+        #weather-card {
+            background-color: #f1f5f9;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        .detail-box {
+            transition: background 0.3s ease-in-out, transform 0.1s ease-out;
+        }
+
+        .detail-box:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Style for the forecast items */
+        .forecast-item {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .forecast-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="w-11/12 max-w-md space-y-6">
+        
+        <div class="bg-white p-6 rounded-2xl shadow-2xl transition-all duration-300">
+            <!-- Header & Search Input -->
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">WeatherPeek</h1>
+                <p class="text-sm text-gray-500 mt-1">Real-time forecasts and conditions.</p>
+            </header>
+
+            <div class="flex space-x-2 mb-6">
+                <input type="text" id="city-input" placeholder="Enter city (e.g., Paris)" 
+                       class="flex-grow p-3 border border-gray-300 rounded-xl focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition duration-150 shadow-inner">
+                <button id="search-btn" 
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl font-semibold shadow-md flex items-center justify-center transition duration-150 active:scale-95">
+                        <span data-lucide="search" class="w-5 h-5"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading & Error Message -->
+        <div id="message-area" class="text-center text-sm mb-4 font-medium text-white flex items-center justify-center hidden p-4 bg-red-400/50 rounded-xl">
+             <!-- Loader or Error text will be inserted here -->
+        </div>
+
+        <!-- Main Weather Display Card -->
+        <div id="weather-card" class="text-center p-6 rounded-2xl border border-gray-200 hidden bg-white">
+            
+            <div id="main-info" class="mb-4">
+                <div class="weather-icon-container mx-auto mb-2 text-indigo-600">
+                    <!-- Icon will be inserted here -->
+                    <span id="weather-icon" class="inline-block" data-lucide="cloud"></span>
+                </div>
+                
+                <h2 id="city-name" class="text-4xl font-bold text-gray-800 mb-1">City Name</h2>
+                <p id="temperature" class="text-6xl font-extrabold text-indigo-700">--°C</p>
+                <p id="description" class="text-xl font-medium text-gray-600 capitalize mt-1">--</p>
+            </div>
+
+            <!-- Sunrise / Sunset Detail -->
+            <div class="flex justify-around items-center pt-4 pb-4 border-t border-gray-200 mb-4">
+                <div class="flex items-center space-x-2 text-green-700 detail-box p-2 rounded-xl">
+                    <span data-lucide="sunrise" class="w-6 h-6"></span>
+                    <div>
+                        <p class="text-xs text-gray-500">Sunrise</p>
+                        <p id="sunrise-time" class="font-semibold text-gray-800">--</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 text-orange-700 detail-box p-2 rounded-xl">
+                    <span data-lucide="sunset" class="w-6 h-6"></span>
+                    <div>
+                        <p class="text-xs text-gray-500">Sunset</p>
+                        <p id="sunset-time" class="font-semibold text-gray-800">--</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Detail Grid (2x2) -->
+            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                
+                <!-- UV Index -->
+                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-xl shadow-sm border border-indigo-100 detail-box">
+                    <span data-lucide="sun-medium" class="w-5 h-5 text-purple-600 mb-1"></span>
+                    <p class="text-xs text-gray-500">Max UV Index</p>
+                    <p id="uv-index" class="text-lg font-semibold text-gray-700">--</p>
+                </div>
+
+                <!-- Wind Speed -->
+                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-xl shadow-sm border border-indigo-100 detail-box">
+                    <span data-lucide="wind" class="w-5 h-5 text-green-600 mb-1"></span>
+                    <p class="text-xs text-gray-500">Wind</p>
+                    <p id="wind-speed" class="text-lg font-semibold text-gray-700">-- km/h</p>
+                </div>
+
+                <!-- Max Temp -->
+                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-xl shadow-sm border border-indigo-100 detail-box">
+                    <span data-lucide="thermometer-sun" class="w-5 h-5 text-red-600 mb-1"></span>
+                    <p class="text-xs text-gray-500">Max Temp</p>
+                    <p id="temp-max" class="text-lg font-semibold text-gray-700">--°C</p>
+                </div>
+
+                <!-- Min Temp -->
+                <div class="flex flex-col items-center justify-center bg-white p-3 rounded-xl shadow-sm border border-indigo-100 detail-box">
+                    <span data-lucide="thermometer-snowflake" class="w-5 h-5 text-blue-600 mb-1"></span>
+                    <p class="text-xs text-gray-500">Min Temp</p>
+                    <p id="temp-min" class="text-lg font-semibold text-gray-700">--°C</p>
+                </div>
+
+            </div>
+        </div>
+        
+        <!-- 7-Day Forecast Section -->
+        <div id="forecast-section" class="hidden">
+            <h3 class="text-xl font-bold text-white mb-3 mt-4">7-Day Forecast</h3>
+            <div id="forecast-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                <!-- Forecast items will be dynamically inserted here -->
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        // Initialize Lucide Icons for dynamic rendering
+        lucide.createIcons();
+
+        // ------------------------
+        // API Configurations (No Key Required!)
+        // ------------------------
+        const GEOCODING_URL = 'https://nominatim.openstreetmap.org/search?format=json&limit=1';
+        const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
+
+        // ------------------------
+        // Open-Meteo Weather Code Mapping and Theme
+        // ------------------------
+        function getWeatherDetails(code) {
+            // WMO Weather interpretation codes (WW)
+            if (code >= 0 && code <= 1) return { description: 'Clear sky', icon: 'sun', theme: { from: '#ff9966', to: '#ff5e62' } };
+            if (code >= 2 && code <= 3) return { description: 'Partly cloudy to Overcast', icon: 'cloud', theme: { from: '#a5b4fc', to: '#6366f1' } };
+            if (code >= 45 && code <= 48) return { description: 'Foggy', icon: 'fog', theme: { from: '#94a3b8', to: '#475569' } };
+            if (code >= 51 && code <= 55) return { description: 'Drizzle', icon: 'cloud-drizzle', theme: { from: '#60a5fa', to: '#3b82f6' } };
+            if (code >= 61 && code <= 65) return { description: 'Rain', icon: 'cloud-rain', theme: { from: '#3b82f6', to: '#1d4ed8' } };
+            if (code >= 66 && code <= 67) return { description: 'Freezing Rain', icon: 'cloud-hail', theme: { from: '#93c5fd', to: '#60a5fa' } };
+            if (code >= 71 && code <= 75) return { description: 'Snow fall', icon: 'cloud-snow', theme: { from: '#bfdbfe', to: '#93c5fd' } };
+            if (code === 77) return { description: 'Snow grains', icon: 'cloud-snow', theme: { from: '#bfdbfe', to: '#93c5fd' } };
+            if (code >= 80 && code <= 82) return { description: 'Rain showers', icon: 'cloud-lightning-rain', theme: { from: '#1e3a8a', to: '#172554' } };
+            if (code >= 85 && code <= 86) return { description: 'Snow showers', icon: 'cloud-snow', theme: { from: '#bfdbfe', to: '#93c5fd' } };
+            if (code >= 95 && code <= 99) return { description: 'Thunderstorm', icon: 'cloud-lightning', theme: { from: '#1e293b', to: '#0f172a' } };
+            return { description: 'Unknown', icon: 'cloud', theme: { from: '#434c76', to: '#30375c' } };
+        }
+
+        // ------------------------
+        // DOM Elements
+        // ------------------------
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const messageArea = document.getElementById('message-area');
+        const weatherCard = document.getElementById('weather-card');
+        const forecastSection = document.getElementById('forecast-section');
+        const forecastContainer = document.getElementById('forecast-container');
+        
+        const cityNameEl = document.getElementById('city-name');
+        const tempEl = document.getElementById('temperature');
+        const descEl = document.getElementById('description');
+        const windSpeedEl = document.getElementById('wind-speed');
+        const tempMaxEl = document.getElementById('temp-max');
+        const tempMinEl = document.getElementById('temp-min');
+        const weatherIconContainer = document.getElementById('weather-icon');
+        const uvIndexEl = document.getElementById('uv-index');
+        const sunriseTimeEl = document.getElementById('sunrise-time');
+        const sunsetTimeEl = document.getElementById('sunset-time');
+
+        // ------------------------
+        // Utility Functions
+        // ------------------------
+
+        function displayMessage(message, isError = false) {
+            weatherCard.classList.add('hidden');
+            forecastSection.classList.add('hidden');
+            messageArea.classList.remove('hidden');
+            
+            messageArea.classList.toggle('bg-red-400/50', isError);
+            messageArea.classList.toggle('text-red-500', isError);
+            messageArea.classList.toggle('text-white', !isError); // Loader text is white
+
+            // Add loading spinner if not an error message
+            if (!isError) {
+                messageArea.innerHTML = `<div class="loader mr-3"></div> ${message}`;
+            } else {
+                messageArea.innerHTML = `Error: ${message}`;
+            }
+        }
+
+        async function fetchJson(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        }
+
+        function formatTime(timestampString) {
+            if (!timestampString) return '--:--';
+            const date = new Date(timestampString);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatDateToDay(dateString) {
+            if (!dateString) return '--';
+            const date = new Date(dateString);
+            const today = new Date();
+            if (date.toDateString() === today.toDateString()) {
+                return 'Today';
+            }
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            if (date.toDateString() === tomorrow.toDateString()) {
+                return 'Tomorrow';
+            }
+            return date.toLocaleDateString('en-US', { weekday: 'short' });
+        }
+
+        function applyTheme(theme) {
+            document.body.style.setProperty('--bg-gradient-default', `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`);
+        }
+
+        // ------------------------
+        // Geocoding and Weather Fetch
+        // ------------------------
+
+        async function getWeatherByCity(city) {
+            displayMessage('Finding city coordinates...');
+            
+            try {
+                // 1. Get Coordinates (Geocoding)
+                const geoUrl = `${GEOCODING_URL}&q=${encodeURIComponent(city)}`;
+                const geoData = await fetchJson(geoUrl);
+                
+                if (geoData.length === 0) {
+                    displayMessage(`City "${city}" not found.`, true);
+                    return;
+                }
+                
+                const { lat, lon, display_name } = geoData[0];
+                const cleanName = display_name.split(',').slice(0, 2).join(', ').trim(); // Use a cleaner name for display
+
+                // 2. Fetch Weather Data
+                displayMessage(`Fetching weather for ${cleanName}...`);
+
+                await fetchWeatherByCoordinates(lat, lon, cleanName);
+
+            } catch (error) {
+                console.error('Geocoding or weather fetch failed:', error);
+                displayMessage('Failed to connect to weather services.', true);
+            }
+        }
+        
+        async function fetchWeatherByCoordinates(lat, lon, cityDisplay) {
+            // Parameters for Open-Meteo API
+            const params = new URLSearchParams({
+                latitude: lat,
+                longitude: lon,
+                current_weather: 'true',
+                // Fetching 7 days of daily data
+                daily: 'temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,uv_index_max,sunrise,sunset', 
+                forecast_days: 7,
+                timezone: 'auto'
+            });
+            
+            const weatherUrl = `${WEATHER_URL}?${params.toString()}`;
+            
+            try {
+                const data = await fetchJson(weatherUrl);
+                updateCurrentWeatherCard(data, cityDisplay);
+                renderForecast(data);
+                
+            } catch (error) {
+                console.error('Weather data fetch failed:', error);
+                displayMessage('Failed to fetch weather forecast.', true);
+            }
+        }
+        
+        function updateCurrentWeatherCard(data, cityDisplay) {
+            const current = data.current_weather;
+            const daily = data.daily;
+
+            const temp = Math.round(current.temperature);
+            const weatherCode = current.weathercode;
+            const wind = current.windspeed.toFixed(1);
+            
+            // Current day data (index 0)
+            const max = daily.temperature_2m_max[0] ? Math.round(daily.temperature_2m_max[0]) : '--';
+            const min = daily.temperature_2m_min[0] ? Math.round(daily.temperature_2m_min[0]) : '--';
+            const uvIndex = daily.uv_index_max[0] ? daily.uv_index_max[0].toFixed(1) : 'N/A';
+            const sunrise = daily.sunrise[0];
+            const sunset = daily.sunset[0];
+
+            const { description, icon, theme } = getWeatherDetails(weatherCode);
+
+            // 1. Update Theme
+            applyTheme(theme);
+
+            // 2. Update DOM
+            cityNameEl.textContent = cityDisplay || 'Current Location';
+            tempEl.textContent = `${temp}°C`;
+            descEl.textContent = description;
+            
+            uvIndexEl.textContent = uvIndex;
+            sunriseTimeEl.textContent = formatTime(sunrise);
+            sunsetTimeEl.textContent = formatTime(sunset);
+            
+            windSpeedEl.textContent = `${wind} km/h`;
+            tempMaxEl.textContent = `${max}°C`;
+            tempMinEl.textContent = `${min}°C`;
+            
+            // 3. Update Icon
+            weatherIconContainer.innerHTML = `<span data-lucide="${icon}" class="w-16 h-16 inline-block"></span>`;
+            lucide.createIcons(); // Re-render the icon
+
+            // 4. Show the card and hide the message area
+            weatherCard.classList.remove('hidden');
+            messageArea.classList.add('hidden');
+        }
+
+        function renderForecast(data) {
+            const daily = data.daily;
+            let forecastHTML = '';
+
+            // Start loop from index 0 (today) up to 7 days
+            for (let i = 0; i < daily.time.length; i++) {
+                const dateString = daily.time[i];
+                const maxTemp = Math.round(daily.temperature_2m_max[i]);
+                const minTemp = Math.round(daily.temperature_2m_min[i]);
+                const weatherCode = daily.weather_code[i];
+                
+                // Get display data
+                const day = formatDateToDay(dateString);
+                const { description, icon } = getWeatherDetails(weatherCode);
+                
+                // Skip the first day (Today) as it's already shown in the main card.
+                if (i === 0) continue;
+
+                forecastHTML += `
+                    <div class="forecast-item flex flex-col items-center justify-between p-3 bg-white rounded-xl shadow-md border border-gray-200 text-gray-800">
+                        <p class="text-sm font-semibold">${day}</p>
+                        <div class="text-indigo-600 my-1">
+                            <span data-lucide="${icon}" class="w-6 h-6 inline-block"></span>
+                        </div>
+                        <p class="text-xs text-gray-600 capitalize text-center">${description.split(' ')[0]}</p>
+                        <div class="text-sm font-medium mt-1">
+                            <span class="text-red-500">${maxTemp}°</span> / <span class="text-blue-500">${minTemp}°</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            forecastContainer.innerHTML = forecastHTML;
+            lucide.createIcons(); // Re-render icons in the forecast section
+            forecastSection.classList.remove('hidden');
+        }
+
+        // ------------------------
+        // Geolocation on Load
+        // ------------------------
+        function getCurrentLocationWeather() {
+            if ("geolocation" in navigator) {
+                displayMessage('Detecting your current location...');
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        // Use a reverse geocoding to get a better city name for the display
+                        fetchWeatherByCoordinates(lat, lon, 'Current Location');
+                    },
+                    (error) => {
+                        console.warn('Geolocation error:', error.message);
+                        // Fallback to a default city if location fails
+                        getWeatherByCity('New York'); 
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                // Fallback if Geolocation is not supported
+                getWeatherByCity('New York');
+            }
+        }
+
+        // ------------------------
+        // Event Listeners
+        // ------------------------
+        searchBtn.addEventListener('click', () => {
+            const city = cityInput.value.trim();
+            if (city) {
+                getWeatherByCity(city);
+            } else {
+                displayMessage('Please enter a city name.', true);
+            }
+        });
+
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchBtn.click();
+            }
+        });
+
+        // ------------------------
+        // Initial Load
+        // ------------------------
+        window.onload = getCurrentLocationWeather;
+
+    </script>
+</body>
+</html>
+
